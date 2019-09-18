@@ -48,6 +48,10 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
 
     def on_present(self, service):
         lbaas_spec = utils.get_lbaas_spec(service)
+        ns_name = namespace['metadata']['name']
+        net_crd = self._get_net_crd(net_crd_name)
+        net_crd_spec = self._drv_subnets.create_namespace_network(ns_name, project_id)
+                            
 
         if self._should_ignore(service):
             LOG.debug("Skipping Kubernetes service %s of an unsupported kind "
@@ -57,8 +61,75 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
             return
 
         if self._has_lbaas_spec_changes(service, lbaas_spec):
+            #TODO creatig the crd
+
+            net_crd = self._add_lbaas_crd(ns_name, net_crd_spec)
+            self._set_net_crd(namespace, net_crd)
+            self._drv_sg.create_namespace_sg_rules(namespace)   
+
+
             lbaas_spec = self._generate_lbaas_spec(service)
             utils.set_lbaas_spec(service, lbaas_spec)
+
+
+    #TODO I add this here
+
+    def _get_net_crd(self, net_crd_id):
+        k8s = clients.get_kubernetes_client()
+        try:
+            kuryrnet_crd = k8s.get('%s/lbaas/%s' % (constants.K8S_API_CRD,
+                                                        net_crd_id))
+        except exceptions.K8sResourceNotFound:
+            return None
+        except exceptions.K8sClientException:
+            LOG.exception("Kubernetes Client Exception.")
+            raise
+        return kuryrnet_crd
+
+
+    def _set_net_crd(self, namespace, net_crd):
+            LOG.debug("Setting CRD annotations: %s", net_crd)
+
+            k8s = clients.get_kubernetes_client()
+            k8s.annotate(namespace['metadata']['selfLink'],
+                        {constants.K8S_ANNOTATION_NET_CRD:
+                        net_crd['metadata']['name']},
+                        resource_version=namespace['metadata']['resourceVersion'])
+
+    def _add_lbaas_crd(self, namespace, net_crd_spec):
+        kubernetes = clients.get_kubernetes_client()
+        net_crd_name = "ns-" + namespace
+        spec = {k: v for k, v in net_crd_spec.items()}
+        # NOTE(ltomasbo): To know if the subnet has bee populated with pools.
+        # This is only needed by the kuryrnet handler to skip actions. But its
+        # addition does not have any impact if not used
+        spec['ip'] = "10.0.0.149"
+        #spec['lb_ip'] = null
+        spec['project_id'] = "ccec767b32d745bbb012a6da355be65d"
+        spec['security_groups_ids'] = ["b2b92789-43d3-46ee-8a5c-097f64407952", "42280128-e23c-4706-88c9-99a7bba4afea"]
+        spec['subnet_id'] = "e2338fcd-0567-422e-a9f3-daa795d5ae35"
+        spec['type'] = "ClusterIP"
+
+        net_crd = {
+            'apiVersion': 'openstack.org/v1',
+            'kind': 'lbaa',
+            'metadata': {
+                'name': net_crd_name,
+                #'annotations': {
+                #    'namespaceName': namespace,
+                #}
+            },
+            'spec': spec,
+        }
+        try:
+            kubernetes.post('%s/lbaas' % constants.K8S_API_CRD, net_crd)
+        except exceptions.K8sClientException:
+            LOG.exception("Kubernetes Client Exception creating lbaas "
+                          "CRD.")
+            raise
+        return net_crd
+
+#TODO My adding stop here
 
     def _is_supported_type(self, service):
         spec = service['spec']

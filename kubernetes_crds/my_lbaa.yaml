@@ -1,0 +1,18 @@
+apiVersion: "openstack.org/v1"
+kind: LBaa
+metadata:
+  name: my-new-lbaa-object
+spec:
+  ip: 10.0.0.149
+  lb_ip: null
+  ports:
+    - name: null
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  project_id: ccec767b32d745bbb012a6da355be65d
+  security_groups_ids: 
+    - b2b92789-43d3-46ee-8a5c-097f64407952
+    - 42280128-e23c-4706-88c9-99a7bba4afea
+  subnet_id: e2338fcd-0567-422e-a9f3-daa795d5ae35
+  type: ClusterIP
