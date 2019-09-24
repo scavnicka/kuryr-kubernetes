@@ -1,17 +1,17 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: loadbalancers.openstack.org
+  name: kuryrnetloadbalancers.openstack.org
 spec:
   group: openstack.org
   version: v1
   scope: Namespaced
   names:
-    plural: loadbalancers
-    singular: loadbalancer
-    kind: LoadBalancer
+    plural: kuryrnetloadbalancers
+    singular: kuryrnetloadbalancer
+    kind: KuryrNetLoadBalancer
     shortNames:
-      - lb
+      - knlb
   validation:
     openAPIV3Schema:
       type: object
@@ -25,11 +25,91 @@ spec:
               type: null
             ports: 
               type: array
+              properties:
+                name:
+                  type: string
+                port:
+                  type: integer
+                protocol:
+                  type: string
+                targetPort:  
+                  type: integer
             project_id:
               type: string
             security_groups_ids:
-              type: string
+              type: array
             subnet_id:
               type: string
             type:
               type: string
+        status:
+          type: object
+          properties:
+            listeners:
+              type: object
+              properties:
+                id:
+                  type: string
+                loadbalancer_id:
+                  type: string
+                name:
+                  type: string
+                port:
+                  type: integer
+                project_id: 
+                  type: string
+                protocol:
+                  type: string
+            loadbalancer:
+              type: object
+              properties:
+                id:
+                  type: string
+                ip:
+                  type: string
+                name:
+                  type: string
+                port:
+                  type: integer
+                project_id: 
+                  type: string
+                provider:
+                  type: string
+                security_groups:
+                  type: array
+                subnet_id:
+                  type: string
+            members:
+              type: object
+              properties:
+                id:
+                  type: string
+                ip:
+                  type: string
+                name:
+                  type: string
+                pool_id:
+                  type: string
+                port: 
+                  type: integer
+                project_id:
+                  type: string
+                subnet_id:
+                  type: string
+            pools:
+              type: object
+              properties:
+                id:
+                  type: string
+                listener_id:
+                  type: string
+                loadbalancer_id:
+                  type: string
+                name:
+                  type: string
+                project_id:
+                  type: string
+                protocol:
+                  type: string
+            service_pub_ip_info:
+              type: null
