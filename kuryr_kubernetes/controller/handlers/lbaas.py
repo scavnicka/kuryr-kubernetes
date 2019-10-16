@@ -45,9 +45,14 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         self._drv_project = drv_base.ServiceProjectDriver.get_instance()
         self._drv_subnets = drv_base.ServiceSubnetsDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
-
+        self.kubernetes = clients.get_kubernetes_client()
     def on_present(self, service):
         lbaas_spec = utils.get_lbaas_spec(service)
+
+        kuryrloadbalancer_crd_id = self._get_kuryrloadbalancer_crd_id(service)
+        if kuryrloadbalancer_crd_id:
+            LOG.debug("CRD existing at the new namespace")
+            return
 
         if self._should_ignore(service):
             LOG.debug("Skipping Kubernetes service %s of an unsupported kind "
@@ -98,6 +103,26 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
 
         return subnet_ids.pop()
 
+    def _get_kuryrloadbalancer_crd_id(self, service):
+        try:
+            annotations = service['metadata']['annotations']
+            kuryrloadbalancer_crd_id = annotations[constants.K8S_ANNOTATION_NET_CRD]
+        except KeyError:
+            return None
+        return kuryrloadbalancer_crd_id
+
+    def get_kuryrloadbalancer_crd(self, kuryrloadbalancer_crd_id):
+        k8s = clients.get_kubernetes_client()
+        try:
+            kuryrloadbalancer_crd = k8s.get('%s/kuryrloadbalancers/%s' % (constants.K8S_API_CRD,
+                                                        kuryrloadbalancer_crd_id))
+        except k_exc.K8sResourceNotFound:
+            return None
+        except k_exc.K8sClientException:
+            LOG.exception("Kubernetes Client Exception.")
+            raise
+        return kuryrloadbalancer_crd
+
     def _generate_lbaas_spec(self, service):
         project_id = self._drv_project.get_project(service)
         ip = self._get_service_ip(service)
@@ -107,7 +132,47 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         spec_type = service['spec'].get('type')
         spec_lb_ip = service['spec'].get('loadBalancerIP')
 
-        return obj_lbaas.LBaaSServiceSpec(ip=ip,
+        
+        svc_name = service['metadata']['name']
+	namespace = service['metadata']['namespace']
+        LOG.warning("***************************************************************************************"
+        "***************************************************************************************************")
+      
+        kubernetes = clients.get_kubernetes_client()
+        net_crd_name = "svc-" + svc_name
+
+        # NOTE(ltomasbo): To know if the subnet has bee populated with pools.
+        # This is only needed by the kuryrnet handler to skip actions. But its
+        # addition does not have any impact if not used
+
+        loadbalancer_crd = {
+            'apiVersion': 'openstack.org/v1',
+            'kind': 'KuryrLoadBalancer',
+            'metadata': {
+                'name': net_crd_name,
+                'annotations': {
+                    'serviceName': svc_name
+                },
+            },
+            'spec': {
+                'ip': ip,
+                'lb_ip': spec_lb_ip,
+                'ports': ports,
+                'project_id': project_id,
+                'security_groups_ids': sg_ids,
+                'subnet_id': subnet_id,
+                'type': spec_type
+            },
+        }
+        try:
+            kubernetes.post('%s/kuryrloadbalancers' % k_const.K8S_API_CRD, loadbalancer_crd)
+        except k_exc.K8sClientException:
+            LOG.exception("Kubernetes Client Exception creating kuryrloadbalancer "
+                          "CRD. %s" % k_exc.K8sClientException)
+            raise
+
+
+        return loadbalancer_crd, obj_lbaas.LBaaSServiceSpec(ip=ip,
                                           project_id=project_id,
                                           subnet_id=subnet_id,
                                           ports=ports,
