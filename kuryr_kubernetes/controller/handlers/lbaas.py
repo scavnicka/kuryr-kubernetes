@@ -25,6 +25,9 @@ from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes import utils
 
+import ast
+import json
+
 LOG = logging.getLogger(__name__)
 
 SUPPORTED_SERVICE_TYPES = ('ClusterIP', 'LoadBalancer')
@@ -127,43 +130,75 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         project_id = self._drv_project.get_project(service)
         ip = self._get_service_ip(service)
         subnet_id = self._get_subnet_id(service, project_id, ip)
+        LOG.warning("***************************************************************************************"
+        "***************************************************************************************************")
         ports = self._generate_lbaas_port_specs(service)
-        sg_ids = self._drv_sg.get_security_groups(service, project_id)
+        ports_spec = utils.get_service_ports(service)
+        ports_spec_k = utils.get_service_ports(service)
+       
+    	sg_ids = self._drv_sg.get_security_groups(service, project_id)
         spec_type = service['spec'].get('type')
         spec_lb_ip = service['spec'].get('loadBalancerIP')
 
+        LOG.warning(spec_type)
+	
         
         svc_name = service['metadata']['name']
 	namespace = service['metadata']['namespace']
-        LOG.warning("***************************************************************************************"
-        "***************************************************************************************************")
-      
+     
         kubernetes = clients.get_kubernetes_client()
         net_crd_name = "svc-" + svc_name
+        
+        LOG.warning("***************************************************************************************"
+        "***************************************************************************************************")
+	port_pom = ports_spec_k[0]	
+
+	if port_pom['name'] == None:
+            del port_pom['name']
+
+	ports_specik = [port_pom]        
+        LOG.warning(ports_specik)
 
         # NOTE(ltomasbo): To know if the subnet has bee populated with pools.
         # This is only needed by the kuryrnet handler to skip actions. But its
         # addition does not have any impact if not used
 
-        loadbalancer_crd = {
-            'apiVersion': 'openstack.org/v1',
-            'kind': 'KuryrLoadBalancer',
-            'metadata': {
-                'name': net_crd_name,
-                'annotations': {
-                    'serviceName': svc_name
+        if spec_lb_ip == None:
+            loadbalancer_crd = {
+                'apiVersion': 'openstack.org/v1',
+                'kind': 'KuryrLoadBalancer',
+                'metadata': {
+                    'name': net_crd_name
                 },
-            },
-            'spec': {
-                'ip': ip,
-                'lb_ip': spec_lb_ip,
-                'ports': ports,
-                'project_id': project_id,
-                'security_groups_ids': sg_ids,
-                'subnet_id': subnet_id,
-                'type': spec_type
-            },
-        }
+                'spec': {
+                    'ip': ip,
+                    'ports': ports_specik,
+                    'project_id': project_id,
+                    'security_groups_ids': sg_ids,
+                    'subnet_id': subnet_id,
+                    'type': spec_type
+                }
+            }
+        else:
+            loadbalancer_crd = {
+                'apiVersion': 'openstack.org/v1',
+                'kind': 'KuryrLoadBalancer',
+                'metadata': {
+                    'name': net_crd_name
+                },
+                'spec': {
+                    'ip': ip,
+                    'lb_ip': spec_lb_ip,
+                    'ports': ports_specik,
+                    'project_id': project_id,
+                    'security_groups_ids': sg_ids,
+                    'subnet_id': subnet_id,
+                    'type': spec_type
+                }
+            }
+
+	loadbalancer_crd = ast.literal_eval(json.dumps(loadbalancer_crd))        
+       
         try:
             kubernetes.post('%s/kuryrloadbalancers' % k_const.K8S_API_CRD, loadbalancer_crd)
         except k_exc.K8sClientException:
