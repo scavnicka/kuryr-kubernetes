@@ -1,15 +1,12 @@
-{
-    "apiVersion": "openstack.org/v1",
-    "metadata": {"name": "svc-demo"},
-    "kind": "KuryrLoadBalancer",
-    "spec": 
-        {
-            "subnet_id": "1a39a34d-93fb-4c37-90b3-021e25e19f4e",
-            "ip": "10.0.0.145",
-            "security_groups_ids": ["7e7dc5dd-6a2b-42c7-9cd9-57c4fc1a7489", "29975f2f-b083-47e3-b2b6-8b023d10573d"],
-            "project_id": "a4025597c2c4427f95b88c0e6d0a5c45",
-            "type": "ClusterIP",
-            "ports": [{"targetPort": "8080", "protocol": "TCP", "name": "This is a test name", "port": 80}],
-            "lb_ip": "kkkkkk"
-        }
+{"kind": "KuryrLoadBalancer",
+    "spec": {
+        "subnet_id": "1a39a34d-93fb-4c37-90b3-021e25e19f4e",
+        "ip": "10.0.0.148",
+        "security_groups_ids": ["7e7dc5dd-6a2b-42c7-9cd9-57c4fc1a7489", "29975f2f-b083-47e3-b2b6-8b023d10573d"],
+        "project_id": "a4025597c2c4427f95b88c0e6d0a5c45",
+        "type": "ClusterIP",
+        "ports": [{"protocol": "TCP", "targetPort": "8080", "port": 80}]
+    },
+"apiVersion": "openstack.org/v1",
+"metadata": {"name": "svc-demo"}
 }
