@@ -504,7 +504,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         LOG.debug("#####################################################lbaas_state.listeners######################################")
         LOG.debug(lbaas_state.listeners)
-	LOG.debug(lbaas_state.listeners[0])
+	LOG.debug(lbaas_state.listeners)
 
 
         return None
