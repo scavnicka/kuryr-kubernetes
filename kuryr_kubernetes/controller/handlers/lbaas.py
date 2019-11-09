@@ -352,6 +352,11 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         LOG.debug("#####################################################lb = lbaas_state.loadbalancer)######################################")
         LOG.debug(lb)
+	LOG.debug(type(lb))	
+	LOG.debug("************************************************************")
+	
+
+
 
         default_sgs = config.CONF.neutron_defaults.pod_security_groups
         # NOTE(maysams) As the endpoint and svc are annotated with the
@@ -379,6 +384,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         LOG.debug("#####################################################lsnr_by_id)######################################")
         LOG.debug(lsnr_by_id)
+	LOG.debug(type(lsnr_by_id))
 
         pool_by_lsnr_port = {(lsnr_by_id[p.listener_id].protocol,
                               lsnr_by_id[p.listener_id].port): p
@@ -386,6 +392,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         LOG.debug("#####################################################pool_by_lsnr_port######################################")
         LOG.debug(pool_by_lsnr_port)
+	
 
         # NOTE(yboaron): Since LBaaSv2 doesn't support UDP load balancing,
         #              the LBaaS driver will return 'None' in case of UDP port
@@ -394,6 +401,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         #              'pool_by_lsnr_port[p.protocol, p.port]' is missing
         pool_by_tgt_name = {}
         for p in lbaas_spec.ports:
+	    LOG.debug("#############################################################################################################")
+	    LOG.debug(p)
             try:
                 pool_by_tgt_name[p.name] = pool_by_lsnr_port[p.protocol,
                                                              p.port]
@@ -459,10 +468,12 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     lbaas_state.members.append(member)
                     changed = True
 
-        LOG.debug("#####################################################lbaas_state.members######################################")
-        LOG.debug(member)
-        LOG.debug(lbaas_state.members)
-
+        	    LOG.debug("#####################################################lbaas_state.members######################################")
+                    LOG.debug(member)
+        	    LOG.debug(lbaas_state.members)
+		    LOG.debug("#########################################################")
+		    #LOG.debug(lbaas_state.members.id)
+			
         return changed
 
     def _get_pod_subnet(self, target_ref, ip):
@@ -493,6 +504,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         LOG.debug("#####################################################lbaas_state.listeners######################################")
         LOG.debug(lbaas_state.listeners)
+	LOG.debug(lbaas_state.listeners[0])
+
 
         return None
 
@@ -649,6 +662,13 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         if removed_ids:
             lbaas_state.listeners = [l for l in lbaas_state.listeners
                                      if l.id not in removed_ids]
+        
+	LOG.debug("###########################################################################################################################################################################################################")
+	LOG.debug(lbaas_state)
+	LOG.debug("******")
+	LOG.debug(type(lbaas_state.listeners))
+	LOG.debug(lbaas_state.listeners)
+	
         return bool(removed_ids)
 
     def _update_lb_status(self, endpoints, lb_ip_address):
@@ -704,21 +724,21 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     security_groups_ids=lbaas_spec.security_groups_ids,
                     service_type=lbaas_spec.type,
                     provider=self._lb_provider)
-		svc_link = self._get_service_link(endpoints)
-		k8s = clients.get_kubernetes_client()
-		service = k8s.get(svc_link)
-		namespace = service['metadata']['namespace']
-                status_data = {"loadbalancer": lb}
+		#svc_link = self._get_service_link(endpoints)
+		#k8s = clients.get_kubernetes_client()
+		#service = k8s.get(svc_link)
+		#namespace = service['metadata']['namespace']
+                #status_data = {"loadbalancer": lb}
                 
-                k8s_post = '/apis/openstack.org/v1/namespaces/{}/kuryrloadbalancers'.format(namespace)
+                #k8s_post = '/apis/openstack.org/v1/namespaces/{}/kuryrloadbalancers'.format(namespace)
 
-                try:
-                    k8s.patch("status", k8s_post, status_data)
-		    LOG.debug("#####################################################lb######################################")
-               	    LOG.debug(k8s.patch_crd("status", k8s_post, status_data))
-                except k_exc.K8sClientException:
+                #try:
+                 #   k8s.patch("status", k8s_post, status_data)
+		  #  LOG.debug("#####################################################lb######################################")
+               	   # LOG.debug(k8s.patch_crd("status", k8s_post, status_data))
+               # except k_exc.K8sClientException:
                     # REVISIT(ivc): only raise ResourceNotReady for NotFound
-                    raise k_exc.ResourceNotReady(svc_link)
+                #    raise k_exc.ResourceNotReady(svc_link)
 
                 changed = True
             elif lbaas_state.service_pub_ip_info:
